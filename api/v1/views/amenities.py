@@ -1,99 +1,60 @@
 #!/usr/bin/python3
-"""
-route for handling Amenity objects and operations
-"""
+"""handles all default RESTFul API actions for Amenity objects"""
 from flask import jsonify, abort, request
-from api.v1.views import app_views, storage
+from api.v1.views import app_views
+from models import storage
 from models.amenity import Amenity
+from api.v1.views.base_actions import REST_actions
 
 
-@app_views.route("/amenities", methods=["GET"], strict_slashes=False)
-def amenity_get_all():
-    """
-    retrieves all Amenity objects
-    :return: json of all states
-    """
-    am_list = []
-    am_obj = storage.all("Amenity")
-    for obj in am_obj.values():
-        am_list.append(obj.to_json())
-
-    return jsonify(am_list)
+@app_views.route('/amenities', methods=['GET'])
+def get_all_amenities():
+    """gets all Amenity objects"""
+    amenities = REST_actions.get(Amenity)
+    return jsonify(amenities)
 
 
-@app_views.route("/amenities", methods=["POST"], strict_slashes=False)
-def amenity_create():
-    """
-    create amenity route
-    :return: newly created amenity obj
-    """
-    am_json = request.get_json(silent=True)
-    if am_json is None:
-        abort(400, 'Not a JSON')
-    if "name" not in am_json:
-        abort(400, 'Missing name')
-
-    new_am = Amenity(**am_json)
-    new_am.save()
-    resp = jsonify(new_am.to_json())
-    resp.status_code = 201
-
-    return resp
-
-
-@app_views.route("/amenities/<amenity_id>",  methods=["GET"],
-                 strict_slashes=False)
-def amenity_by_id(amenity_id):
-    """
-    gets a specific Amenity object by ID
-    :param amenity_id: amenity object id
-    :return: state obj with the specified id or error
-    """
-
-    fetched_obj = storage.get("Amenity", str(amenity_id))
-
-    if fetched_obj is None:
+@app_views.route('/amenities/<amenity_id>', methods=['GET'])
+def get_amenity(amenity_id):
+    """gets a Amenity object by its id"""
+    amenity = REST_actions.get_by_id(Amenity, amenity_id)
+    if amenity.get('status code') == 404:
         abort(404)
+    return jsonify(amenity.get('object dict'))
 
-    return jsonify(fetched_obj.to_json())
 
-
-@app_views.route("/amenities/<amenity_id>",  methods=["PUT"],
-                 strict_slashes=False)
-def amenity_put(amenity_id):
-    """
-    updates specific Amenity object by ID
-    :param amenity_id: amenity object ID
-    :return: amenity object and 200 on success, or 400 or 404 on failure
-    """
-    am_json = request.get_json(silent=True)
-    if am_json is None:
-        abort(400, 'Not a JSON')
-    fetched_obj = storage.get("Amenity", str(amenity_id))
-    if fetched_obj is None:
+@app_views.route('/amenities/<amenity_id>', methods=['DELETE'])
+def delete_amenity(amenity_id):
+    """deletes a Amenity object by its id"""
+    delete_response = REST_actions.delete(Amenity, amenity_id)
+    if delete_response.get('status code') == 404:
         abort(404)
-    for key, val in am_json.items():
-        if key not in ["id", "created_at", "updated_at"]:
-            setattr(fetched_obj, key, val)
-    fetched_obj.save()
-    return jsonify(fetched_obj.to_json())
-
-
-@app_views.route("/amenities/<amenity_id>",  methods=["DELETE"],
-                 strict_slashes=False)
-def amenity_delete_by_id(amenity_id):
-    """
-    deletes Amenity by id
-    :param amenity_id: Amenity object id
-    :return: empty dict with 200 or 404 if not found
-    """
-
-    fetched_obj = storage.get("Amenity", str(amenity_id))
-
-    if fetched_obj is None:
-        abort(404)
-
-    storage.delete(fetched_obj)
-    storage.save()
-
     return jsonify({})
+
+
+@app_views.route('/amenities', methods=['POST'])
+def post_amenity():
+    """creates a Amenity"""
+    request_body = request.get_json()
+    if not request_body:
+        return jsonify({'error': 'Not a JSON'}), 400
+    if not request_body.get('name'):
+        return jsonify({'error': 'Missing name'}), 400
+    new_amenity = Amenity(name=request_body.get('name'))
+    post_response = REST_actions.post(new_amenity)
+    return post_response.get('object dict'), post_response.get('status code')
+
+
+@app_views.route('/amenities/<amenity_id>', methods=['PUT'])
+def put_amenity(amenity_id):
+    """ updates a Amenity object by its id """
+    request_body = request.get_json()
+    if not request_body:
+        abort(400, "Not a JSON")
+
+    args_to_ignore = ['id', 'created_at', 'updated_at']
+    put_response = REST_actions.put(
+        Amenity, amenity_id, args_to_ignore, request_body)
+    if put_response.get('status code') == 404:
+        abort(404)
+    return put_response.get('object dict'), put_response.get('status code')
