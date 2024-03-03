@@ -2,7 +2,6 @@
 """
 Contains the class DBStorage
 """
-import urllib.parse
 
 import models
 from models.amenity import Amenity
@@ -41,24 +40,6 @@ class DBStorage:
         if HBNB_ENV == "test":
             Base.metadata.drop_all(self.__engine)
 
-    def get(self, cls, id: str):
-        """
-        Get Object By Id
-        :param cls:
-        :param id:
-        :return:
-        """
-        if not cls or not cls:
-            return None
-        return self.__session.query(cls).filter_by(id=id).first()
-
-    def count(self, cls=None):
-        """count the number of objects in storage"""
-        if cls:
-            return self.__session.query(cls).count()
-        return sum(map(lambda c: self.__session.query(c).count(),
-                       classes.values()))
-
     def all(self, cls=None):
         """query on the current database session"""
         new_dict = {}
@@ -93,3 +74,24 @@ class DBStorage:
     def close(self):
         """call remove() method on the private session attribute"""
         self.__session.remove()
+
+    def get(self, cls, id):
+        '''get:
+        retrieve an object from the file storage by class and id.
+        '''
+        if cls in classes.values() and id and type(id) == str:
+            d_obj = self.all(cls)
+            for key, value in d_obj.items():
+                if key.split(".")[1] == id:
+                    return value
+        return None
+
+    def count(self, cls=None):
+        '''count:
+        count the number of objects in storage matching the given class.
+        '''
+        data = self.all(cls)
+        if cls in classes.values():
+            data = self.all(cls)
+        return len(data)
+
